@@ -1,0 +1,5 @@
+---- SensorDeviceImpl::setCoordinateFrame Matches (4 in 2 files) ----
+OVR_SensorDeviceImpl.cpp (vrlib\jni\vrapi\sensors):    setCoordinateFrame(Coordinates);
+OVR_SensorDeviceImpl.cpp (vrlib\jni\vrapi\sensors):        PushCall(this, &SensorDeviceImpl::setCoordinateFrame, coordframe, true);
+OVR_SensorDeviceImpl.cpp (vrlib\jni\vrapi\sensors):Void SensorDeviceImpl::setCoordinateFrame(CoordinateFrame coordframe)
+OVR_SensorDeviceImpl.h (vrlib\jni\vrapi\sensors):    Void    setCoordinateFrame(CoordinateFrame coordframe);
