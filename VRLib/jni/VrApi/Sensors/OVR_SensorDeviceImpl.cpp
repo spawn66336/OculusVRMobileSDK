@@ -1057,6 +1057,59 @@ void SensorDeviceImpl::OnInputReport(UByte* pData, UInt32 length)
     }
 }
 
+
+
+float DECOM(const UByte * raw, float scale)
+{
+	SInt16 r = raw[0] << 8 | raw[1];
+
+	float v = r * scale;
+
+	return v;
+}
+
+//
+void SensorDeviceImpl::OnInputReport2(UByte* pData, UInt32 length)
+{
+	if (length != 20){
+		LogText("SensorDeviceImpl::OnInputReport2 data size error %d", length);
+		return;
+	}
+	
+	TrackerMessage message;
+	memset(&message, 0, sizeof(message));
+
+	message.Type = TrackerMessage_Sensors;
+
+	TrackerSensors& s = message.Sensors;
+	
+	static UInt16 timestmp = 0;
+	s.SampleCount	= 1;
+	s.LastCommandID = 0;
+	s.Temperature	= 0;
+	s.Timestamp		= timestmp;
+	timestmp++;
+
+	// 量程+/-4G 适配oculus实现乘以10000
+	float accScale = (4 * 9.8f * 10000.f) / 32767.f;
+	s.Samples[0].AccelX = (SInt32)DECOM(pData + 0, accScale);
+	s.Samples[0].AccelY = (SInt32)DECOM(pData + 2, accScale);
+	s.Samples[0].AccelZ = (SInt32)DECOM(pData + 4, accScale);
+
+	// 量程 +/- 1000 deg/s
+	float gyroScale = (1000.f * Mathf::DegreeToRadFactor * 10000.f) / 32767.f;
+	s.Samples[0].GyroX = (SInt32)DECOM(pData + 6, gyroScale);
+	s.Samples[0].GyroY = (SInt32)DECOM(pData + 8, gyroScale);
+	s.Samples[0].GyroZ = (SInt32)DECOM(pData + 10, gyroScale);
+
+	float magScale = 10000.f * 0.00073f;
+	s.MagX = (SInt32)DECOM(pData + 12, magScale);
+	s.MagZ = (SInt32)DECOM(pData + 14, magScale);
+	s.MagY = (SInt32)DECOM(pData + 16, magScale);
+
+	onTrackerMessage(&message);
+}
+
 double SensorDeviceImpl::OnTicks(double tickSeconds)
 {
     if (tickSeconds >= NextKeepAliveTickSeconds)

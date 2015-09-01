@@ -104,7 +104,18 @@ namespace OVR {
 
 
 
-	int devicefd = -1;
+	static int devicefd = -1;
+	static int deviceType = 0;
+
+	static int count = 0;
+	static double lastTime = 0.0;
+
+	enum 
+	{
+		DEVICE_TYPE_M3D = 0,
+		DEVICE_TYPE_DK1,
+	};
+
 	extern Array<SensorDeviceImpl*>  GSensorDevice;
 
 	class DeviceThread : public MyThread
@@ -128,9 +139,6 @@ namespace OVR {
 
 	int ReadSensorDataFromUsb()
 	{
-		static int count = 0;
-		static double lastTime = 0.0;
-
 		if (devicefd < 0) {
 			return 0;
 		}
@@ -169,12 +177,17 @@ namespace OVR {
 
 			SensorDeviceImpl* device = GSensorDevice.Back();
 			device->OnTicks(timeSeconds);
-			device->OnInputReport((UByte*)buffer, r);
+
+			if (deviceType == DEVICE_TYPE_DK1) {
+				device->OnInputReport((UByte*)buffer, r);
+			} else if (deviceType == DEVICE_TYPE_M3D) {
+				device->OnInputReport2((UByte*)buffer, r);
+			}
 		}
 
 		return r;
 	}
-
+	
 
 	void* DeviceThread::Run()
 	{
@@ -192,16 +205,17 @@ namespace OVR {
 	extern "C"
 	{
 
-		JNIEXPORT void JNICALL Java_com_oculusvr_vrscene_MainActivity_setupUsbDevice(JNIEnv * env, jobject thiz, jint fd)
+		JNIEXPORT void JNICALL Java_com_oculusvr_vrscene_MainActivity_setupUsbDevice(JNIEnv * env, jobject thiz, jint fd, jint _deviceType)
 		{
 			devicefd = fd;
+			deviceType = _deviceType;
 
 			//bool r = deviceThread.Create();
 			//if (!r) {
 			//	LogText("deviceThread.Create() failed!");
 			//}
 
-			//LogText("deviceThread.Create()!!!");
+			LogText("deviceThread.Create()!!! %d", fd);
 		}
 
 		JNIEXPORT void JNICALL Java_com_oculusvr_vrscene_MainActivity_PushData
@@ -270,6 +284,10 @@ namespace OVR {
 
 	bool UsbSetFeature(UByte* data, uint32_t size)
 	{
+		if (deviceType == DEVICE_TYPE_M3D){
+			return false;
+		}
+
 		if (devicefd < 0) {
 			return false;
 		}
@@ -299,6 +317,10 @@ namespace OVR {
 
 	bool UsbGetFeature(UByte* data, uint32_t size)
 	{
+		if (deviceType == DEVICE_TYPE_M3D){
+			return false;
+		}
+
 		if (devicefd < 0) {
 			return false;
 		}

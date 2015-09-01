@@ -190,7 +190,8 @@ public:
     virtual void SetMessageHandler(MessageHandler* handler);
 
     // HIDDevice::Notifier interface.
-    virtual void OnInputReport(UByte* pData, UInt32 length);
+	virtual void OnInputReport(UByte* pData, UInt32 length);
+	virtual void OnInputReport2(UByte* pData, UInt32 length);
     virtual double OnTicks(double tickSeconds);
 
     // HMD-Mounted sensor has a different coordinate frame.

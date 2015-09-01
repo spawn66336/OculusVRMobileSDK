@@ -64,11 +64,17 @@ public class MainActivity extends VrActivity {
 		 
 		while(deviceIterator.hasNext()){    
 			UsbDevice device = deviceIterator.next();
+
+			int deviceType = 0;
 			
-			if (device.getVendorId() != 10291 || device.getProductId() != 1) {
+			if (device.getVendorId() == 10291 && device.getProductId() == 1) {
+				deviceType = 1;
+			} else if (device.getVendorId() == 1155 && device.getProductId() == 22336) {
+				deviceType = 0;
+			} else {
 				continue;
 			}
-			
+						
 			int nInterface = device.getInterfaceCount();
 			if (nInterface < 1)	{
 				continue;
@@ -84,7 +90,7 @@ public class MainActivity extends VrActivity {
 			connection.claimInterface(intf, forceClaim);
 			
 			int fd = connection.getFileDescriptor();
-			setupUsbDevice(fd);	
+			setupUsbDevice(fd, deviceType);	
 			
 			// use native thread
 			//StartUsbIOThread();					
@@ -119,6 +125,6 @@ public class MainActivity extends VrActivity {
 	
 		
     public native void PushData(byte[] buffer, int length);	
-    public native void setupUsbDevice(int fd);
+    public native void setupUsbDevice(int fd, int deviceType);
 	
 }
