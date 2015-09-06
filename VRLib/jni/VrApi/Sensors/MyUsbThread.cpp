@@ -110,11 +110,6 @@ namespace OVR {
 	static int count = 0;
 	static double lastTime = 0.0;
 
-	enum 
-	{
-		DEVICE_TYPE_M3D = 0,
-		DEVICE_TYPE_DK1,
-	};
 
 	extern Array<SensorDeviceImpl*>  GSensorDevice;
 
@@ -280,6 +275,11 @@ namespace OVR {
 	//	}
 	//}
 
+
+	int GetSensorDeviceType()
+	{
+		return deviceType;
+	}
 
 
 	bool UsbSetFeature(UByte* data, uint32_t size)

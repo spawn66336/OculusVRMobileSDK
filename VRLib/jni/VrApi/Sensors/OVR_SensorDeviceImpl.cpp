@@ -847,6 +847,7 @@ SensorDeviceImpl::SensorDeviceImpl(SensorDeviceCreateDesc* createDesc)
       NextKeepAliveTickSeconds(0),
       FullTimestamp(0),
       RealTimeDelta(0.0),
+	  Temperature(25.0f),
       MaxValidRange(SensorRangeImpl::GetMaxSensorRange()),
 	  pCalibration(NULL)
 {
@@ -885,6 +886,10 @@ SensorDeviceImpl::SensorDeviceImpl(SensorDeviceCreateDesc* createDesc)
 				 si.ProductId == Device_KTracker_Samsung_ProductId_5))
 	{
 		// Newer firmware supports temp table.
+		deviceSupportsPhoneTemperatureTable = true;
+	}
+
+	if (GetSensorDeviceType() == DEVICE_TYPE_M3D) {
 		deviceSupportsPhoneTemperatureTable = true;
 	}
 
@@ -967,8 +972,7 @@ void SensorDeviceImpl::openDevice()
 	{
 		setOnboardCalibrationEnabled(false);
 	}
-	
-	
+		
     // Set Keep-alive at 10 seconds.
     SensorKeepAliveImpl skeepAlive(10 * 1000);
     GetInternalDevice()->SetFeatureReport(skeepAlive.Buffer, SensorKeepAliveImpl::PacketSize);
@@ -1103,9 +1107,11 @@ void SensorDeviceImpl::OnInputReport2(UByte* pData, UInt32 length)
 	s.Samples[0].GyroZ = (SInt32)DECOM(pData + 10, gyroScale);
 
 	float magScale = 10000.f * 0.00073f;
-	s.MagX = (SInt32)DECOM(pData + 12, magScale);
-	s.MagZ = (SInt32)DECOM(pData + 14, magScale);
-	s.MagY = (SInt32)DECOM(pData + 16, magScale);
+	s.MagX = (SInt16)DECOM(pData + 12, magScale);
+	s.MagY = (SInt16)DECOM(pData + 14, magScale);
+	s.MagZ = (SInt16)DECOM(pData + 16, magScale);
+
+	s.Temperature = 2500;
 
 	onTrackerMessage(&message);
 }
@@ -1527,6 +1533,10 @@ bool SensorDeviceImpl::getAllTemperatureReports(Array<Array<TemperatureReport> >
 
 bool SensorDeviceImpl::GetGyroOffsetReport(GyroOffsetReport* data)
 {
+	if (GetSensorDeviceType() == DEVICE_TYPE_M3D) {
+		return false;
+	}
+
     // direct call if we are already on the device manager thread
     if (GetCurrentThreadId() == GetManagerImpl()->GetThreadId())
     {
@@ -1560,11 +1570,14 @@ bool SensorDeviceImpl::getGyroOffsetReport(GyroOffsetReport* data)
 // to be eliminated soon.
 //#define OVR_OLD_TIMING_LOGIC
 
+float sampleValue[6];
+
 
 void SensorDeviceImpl::onTrackerMessage(TrackerMessage* message)
 {
     if (message->Type != TrackerMessage_Sensors)
         return;
+
     
     const double    timeUnit        = (1.0 / 1000.0);
     double          scaledTimeUnit  = timeUnit;
@@ -1578,7 +1591,6 @@ void SensorDeviceImpl::onTrackerMessage(TrackerMessage* message)
 
     const double now                 = OVR::Timer::GetSeconds();
     double absoluteTimeSeconds       = 0.0;
-    
 
     if (SequenceValid)
 	{
@@ -1713,10 +1725,18 @@ void SensorDeviceImpl::onTrackerMessage(TrackerMessage* message)
             replaceWithPhoneMag(&(sensors.MagneticField), &(sensors.MagneticBias));
             sensors.Temperature   = s.Temperature * 0.01f;
 
+			sampleValue[0] = sensors.RotationRate.x;
+			sampleValue[1] = sensors.RotationRate.y;
+			sampleValue[2] = sensors.RotationRate.z;
+
 			if (pCalibration != NULL)
 			{
 				pCalibration->Apply(sensors);
 			}
+
+			sampleValue[3] = sensors.RotationRate.x;
+			sampleValue[4] = sensors.RotationRate.y;
+			sampleValue[5] = sensors.RotationRate.z;
 
 			HandlerRef.GetHandler()->OnMessage(sensors);
 
