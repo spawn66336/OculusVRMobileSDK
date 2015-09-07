@@ -23,6 +23,15 @@ namespace OVR {
 struct TrackerMessage;
 class ExternalVisitor;
 
+
+enum
+{
+	DEVICE_TYPE_M3D = 0,
+	DEVICE_TYPE_DK1,
+};
+
+int GetSensorDeviceType();
+
 //-------------------------------------------------------------------------------------
 // SensorDeviceFactory enumerates Oculus Sensor devices.
 class SensorDeviceFactory : public DeviceFactory

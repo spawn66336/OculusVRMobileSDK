@@ -37,14 +37,14 @@ void SensorCalibration::Initialize(const String& deviceSerialNumber)
     // read factory calibration
     pSensor->GetFactoryCalibration(&AccelOffset, &GyroAutoOffset, &AccelMatrix, &GyroMatrix, &GyroAutoTemperature);
 
-/*
+/**/
 	LogText("LDC - SensorCalibration - Factory calibration GyroMatrix: %f %f %f %f, %f %f %f %f, %f %f %f %f, %f %f %f %f\n",	GyroMatrix.M[0][0], GyroMatrix.M[0][1], GyroMatrix.M[0][2], GyroMatrix.M[0][3],
 																																GyroMatrix.M[1][0], GyroMatrix.M[1][1], GyroMatrix.M[1][2], GyroMatrix.M[1][3],
 																																GyroMatrix.M[2][0], GyroMatrix.M[2][1], GyroMatrix.M[2][2], GyroMatrix.M[2][3],
 																																GyroMatrix.M[3][0], GyroMatrix.M[3][1], GyroMatrix.M[3][2], GyroMatrix.M[3][3]);
 
 	LogText("LDC - SensorCalibration - Factory calibration GyroAutoOffset: %f %f %f temp=%f \n", GyroAutoOffset.x, GyroAutoOffset.y, GyroAutoOffset.z, GyroAutoTemperature);
-*/
+
 
     // if the headset has an autocalibrated offset, prefer it over the factory defaults
     GyroOffsetReport gyroReport;
@@ -55,6 +55,8 @@ void SensorCalibration::Initialize(const String& deviceSerialNumber)
         GyroAutoTemperature = (float) gyroReport.Temperature;
     }
 
+	LogText("LDC - SensorCalibration - Factory calibration GyroAutoOffset: %f %f %f temp=%f \n", GyroAutoOffset.x, GyroAutoOffset.y, GyroAutoOffset.z, GyroAutoTemperature);
+
     // read the temperature tables and prepare the interpolation structures
 #ifdef USE_LOCAL_TEMPERATURE_CALIBRATION_STORAGE
 	GyroCalibration.GetAllTemperatureReports(&TemperatureReports);
@@ -62,7 +64,7 @@ void SensorCalibration::Initialize(const String& deviceSerialNumber)
 	result = pSensor->GetAllTemperatureReports(&TemperatureReports);
 #endif	
 	
-    OVR_ASSERT(result);
+    //OVR_ASSERT(result);
     for (int i = 0; i < 3; i++)
         Interpolators[i].Initialize(TemperatureReports, i);
 
@@ -136,6 +138,8 @@ void SensorCalibration::DebugClearHeadsetTemperatureReports()
 	}
 }
 
+extern float sampleValue[6];
+
 void SensorCalibration::Apply(MessageBodyFrame& msg)
 {
 
@@ -145,6 +149,10 @@ void SensorCalibration::Apply(MessageBodyFrame& msg)
     Vector3f gyroOffset;
     for (int i = 0; i < 3; i++)
         gyroOffset[i] = (float) Interpolators[i].GetOffset(msg.Temperature, GyroAutoTemperature, GyroAutoOffset[i]);
+
+	sampleValue[0] = gyroOffset[0];
+	sampleValue[1] = gyroOffset[1];
+	sampleValue[2] = gyroOffset[2];
 
     // apply calibration
     msg.RotationRate = GyroMatrix.Transform(msg.RotationRate - gyroOffset);
@@ -250,6 +258,7 @@ void SensorCalibration::StoreAutoOffset()
 
 #ifdef USE_LOCAL_TEMPERATURE_CALIBRATION_STORAGE
 			GyroCalibration.SetTemperatureReport(newestReport);
+			//LogText("GyroCalibration.SetTemperatureReport offset ")
 #else
             writeSuccess = pSensor->SetTemperatureReport(newestReport);
             OVR_ASSERT(writeSuccess);
