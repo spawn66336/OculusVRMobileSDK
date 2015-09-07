@@ -847,8 +847,8 @@ SensorDeviceImpl::SensorDeviceImpl(SensorDeviceCreateDesc* createDesc)
       NextKeepAliveTickSeconds(0),
       FullTimestamp(0),
       RealTimeDelta(0.0),
-	  Temperature(25.0f),
-      MaxValidRange(SensorRangeImpl::GetMaxSensorRange()),
+	  MaxValidRange(SensorRangeImpl::GetMaxSensorRange()),
+	  CalibrationTemperature(25.0f),
 	  pCalibration(NULL)
 {
 
@@ -866,7 +866,7 @@ SensorDeviceImpl::SensorDeviceImpl(SensorDeviceCreateDesc* createDesc)
 
 	bool deviceSupportsPhoneTemperatureTable =	false;	// Support means that we can read the device serial number via our feature report 'Serial'
 														// to allow us to associate the temperature table with a device.
-
+	
 	if (si.VendorId == Oculus_VendorId &&
 		si.ProductId == Device_KTracker_ProductId)
 	{

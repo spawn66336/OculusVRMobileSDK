@@ -438,7 +438,7 @@ AppLocal::AppLocal( JNIEnv & jni_, jobject activityObject_, VrAppInterface & int
 			VrThreadTid( 0 ),
 			BatteryLevel( 0 ),
 			BatteryStatus( BATTERY_STATUS_UNKNOWN ),
-			ShowFPS( true ),
+			ShowFPS( false ),
 			ShowVolumePopup( true ),
 			InfoTextColor( 1.0f ),
 			InfoTextOffset( 0.0f ),
@@ -2042,7 +2042,7 @@ void AppLocal::VrThreadFunction()
 			//		0.8f, Vector4f( 1.0f, 0.0f, 0.0f, 1.0f ), "%.1f fps", LastFrameRate );
 
 			GetWorldFontSurface().DrawTextBillboarded3Df(GetDefaultFont(), fp, FPSPointTracker.GetCurPosition(),
-				0.8f, Vector4f(1.0f, 0.0f, 0.0f, 1.0f), "(%.4f %.4f %.4f) (%.4f %.4f %.4f) %.1f", 
+				0.8f, Vector4f(1.0f, 0.0f, 0.0f, 1.0f), "(%.4f %.4f %.4f) (%.4f %.4f %.4f) %.1f",
 				sampleValue[0], sampleValue[1], sampleValue[2], sampleValue[3], sampleValue[4], sampleValue[5], LastFrameRate);
 
 			LastFrameTime = currentFrameTime;

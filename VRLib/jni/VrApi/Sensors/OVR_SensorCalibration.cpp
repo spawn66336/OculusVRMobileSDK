@@ -55,6 +55,8 @@ void SensorCalibration::Initialize(const String& deviceSerialNumber)
         GyroAutoTemperature = (float) gyroReport.Temperature;
     }
 
+	LogText("LDC - SensorCalibration - Factory calibration GyroAutoOffset: %f %f %f temp=%f \n", GyroAutoOffset.x, GyroAutoOffset.y, GyroAutoOffset.z, GyroAutoTemperature);
+
     // read the temperature tables and prepare the interpolation structures
 #ifdef USE_LOCAL_TEMPERATURE_CALIBRATION_STORAGE
 	GyroCalibration.GetAllTemperatureReports(&TemperatureReports);
