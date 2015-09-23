@@ -54,8 +54,12 @@ void SensorCalibration::Initialize(const String& deviceSerialNumber)
         GyroAutoOffset = (Vector3f) gyroReport.Offset;
         GyroAutoTemperature = (float) gyroReport.Temperature;
     }
-
-	LogText("LDC - SensorCalibration - Factory calibration GyroAutoOffset: %f %f %f temp=%f \n", GyroAutoOffset.x, GyroAutoOffset.y, GyroAutoOffset.z, GyroAutoTemperature);
+	else
+	{
+		GyroAutoOffset.Set(-0.137690f, 0.134313f, 0.017489f);
+		GyroAutoTemperature = 25.f;
+	}
+	
 
     // read the temperature tables and prepare the interpolation structures
 #ifdef USE_LOCAL_TEMPERATURE_CALIBRATION_STORAGE
@@ -138,21 +142,14 @@ void SensorCalibration::DebugClearHeadsetTemperatureReports()
 	}
 }
 
-extern float sampleValue[6];
-
 void SensorCalibration::Apply(MessageBodyFrame& msg)
 {
-
 	AutocalibrateGyro(msg);
 
     // compute the interpolated offset
     Vector3f gyroOffset;
     for (int i = 0; i < 3; i++)
         gyroOffset[i] = (float) Interpolators[i].GetOffset(msg.Temperature, GyroAutoTemperature, GyroAutoOffset[i]);
-
-	sampleValue[0] = gyroOffset[0];
-	sampleValue[1] = gyroOffset[1];
-	sampleValue[2] = gyroOffset[2];
 
     // apply calibration
     msg.RotationRate = GyroMatrix.Transform(msg.RotationRate - gyroOffset);
@@ -196,7 +193,9 @@ void SensorCalibration::StoreAutoOffset()
 {
     const double maxDeltaT = 2.5;
     const double minExtraDeltaT = 0.5;
-    const UInt32 minDelay = 24 * 3600; // 1 day in seconds
+    //const UInt32 minDelay = 24 * 3600; // 1 day in seconds
+
+	const UInt32 minDelay = 60;
 
     // find the best bin
     UPInt binIdx = 0;
@@ -204,7 +203,7 @@ void SensorCalibration::StoreAutoOffset()
         if (Abs(GyroAutoTemperature - TemperatureReports[i][0].TargetTemperature) < 
             Abs(GyroAutoTemperature - TemperatureReports[binIdx][0].TargetTemperature))
             binIdx = i;
-
+		
     // find the oldest and newest samples
     // NB: uninitialized samples have Time == 0, so they will get picked as the oldest
     UPInt newestIdx = 0, oldestIdx = 0;
@@ -222,11 +221,12 @@ void SensorCalibration::StoreAutoOffset()
     TemperatureReport& newestReport = TemperatureReports[binIdx][newestIdx];
     OVR_ASSERT((oldestReport.Sample == 0 && newestReport.Sample == 0 && newestReport.Version == 0) || 
                 oldestReport.Sample == (newestReport.Sample + 1) % newestReport.NumSamples);
-
+	
 #ifndef USE_LOCAL_TEMPERATURE_CALIBRATION_STORAGE
     bool writeSuccess = false;
 #endif	
     UInt32 now = (UInt32) time(0);
+	
     if (now - newestReport.Time > minDelay)
     {
         // only write a new sample if the temperature is close enough
@@ -238,6 +238,11 @@ void SensorCalibration::StoreAutoOffset()
             oldestReport.Version = VERSION;
 			
 #ifdef USE_LOCAL_TEMPERATURE_CALIBRATION_STORAGE
+			LogText("GyroCalibration.SetTemperatureReport(oldestReport)");
+			LogText("time %u actualTemp %.3f bin %d sample %d targetTemp %.3f", 
+				oldestReport.Time, (float)oldestReport.ActualTemperature, (UInt32)oldestReport.Bin, 
+				(UInt32)oldestReport.Sample, (float)oldestReport.TargetTemperature);
+
 			GyroCalibration.SetTemperatureReport(oldestReport);
 #else
             writeSuccess = pSensor->SetTemperatureReport(oldestReport);
@@ -257,6 +262,10 @@ void SensorCalibration::StoreAutoOffset()
             newestReport.Version = VERSION;
 
 #ifdef USE_LOCAL_TEMPERATURE_CALIBRATION_STORAGE
+			LogText("GyroCalibration.SetTemperatureReport(newestReport)");
+			LogText("time %u actualTemp %.3f bin %d sample %d targetTemp %.3f",
+				newestReport.Time, (float)newestReport.ActualTemperature, (UInt32)newestReport.Bin,
+				(UInt32)newestReport.Sample, (float)newestReport.TargetTemperature);
 			GyroCalibration.SetTemperatureReport(newestReport);
 			//LogText("GyroCalibration.SetTemperatureReport offset ")
 #else
