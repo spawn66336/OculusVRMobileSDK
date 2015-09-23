@@ -281,10 +281,32 @@ namespace OVR {
 		return deviceType;
 	}
 
+	void Fancy3DKeepAlive()
+	{
+		UByte cmd = 0x31;
+
+		usbfs_bulktransfer bulk;
+		bulk.ep = 0x03;			// send out
+		bulk.data = &cmd;
+		bulk.len = 1;
+		bulk.timeout = 0;
+
+		int r = ioctl(devicefd, IOCTL_USBFS_BULK, &bulk);
+		if (r < 0) {
+			LogText("Fancy3DKeepAlive error r = %d errno %d", r, errno);
+		}
+	}
+
 
 	bool UsbSetFeature(UByte* data, uint32_t size)
 	{
 		if (deviceType == DEVICE_TYPE_M3D){
+
+			if (data[0] == 8) {
+				Fancy3DKeepAlive();
+				return true;
+			}
+
 			return false;
 		}
 

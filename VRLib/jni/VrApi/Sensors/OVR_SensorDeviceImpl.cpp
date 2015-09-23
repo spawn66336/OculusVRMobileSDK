@@ -1072,10 +1072,17 @@ float DECOM(const UByte * raw, float scale)
 	return v;
 }
 
+
+template<class T>
+T DecodeData(const uint8_t* data)
+{
+	return (T(data[0]) << 8) | T(data[1]);
+}
+
 //
 void SensorDeviceImpl::OnInputReport2(UByte* pData, UInt32 length)
 {
-	if (length != 20){
+	if (length != 34){
 		LogText("SensorDeviceImpl::OnInputReport2 data size error %d", length);
 		return;
 	}
@@ -1088,30 +1095,44 @@ void SensorDeviceImpl::OnInputReport2(UByte* pData, UInt32 length)
 	TrackerSensors& s = message.Sensors;
 	
 	static UInt16 timestmp = 0;
-	s.SampleCount	= 1;
+	s.SampleCount	= 2;
 	s.LastCommandID = 0;
 	s.Temperature	= 0;
 	s.Timestamp		= timestmp;
-	timestmp++;
+	timestmp += 2;
 
-	// 量程+/-4G 适配oculus实现乘以10000
-	float accScale = (4 * 9.8f * 10000.f) / 32767.f;
-	s.Samples[0].AccelX = (SInt32)DECOM(pData + 0, accScale);
-	s.Samples[0].AccelY = (SInt32)DECOM(pData + 2, accScale);
-	s.Samples[0].AccelZ = (SInt32)DECOM(pData + 4, accScale);
+	//UInt16 timestamp_t = DecodeData<UInt16>(pData);
+	pData += 2;
 
-	// 量程 +/- 1000 deg/s
-	float gyroScale = (1000.f * Mathf::DegreeToRadFactor * 10000.f) / 32767.f;
-	s.Samples[0].GyroX = (SInt32)DECOM(pData + 6, gyroScale);
-	s.Samples[0].GyroY = (SInt32)DECOM(pData + 8, gyroScale);
-	s.Samples[0].GyroZ = (SInt32)DECOM(pData + 10, gyroScale);
+	//GLog.LogInfo("timestamp %hu", sample.timestamp);
+
+	SInt16 temperature = DecodeData<SInt16>(pData);
+	s.Temperature = (SInt16)((temperature / 340.f + 36.53f) * 100.f);
+	pData += 2;
+
+	//GLog.LogInfo("temperature %hd", sample.temperature);
+
+	for (int i = 0; i < 2; i++)
+	{
+		// 量程+/-4G 适配oculus实现乘以10000
+		float accScale = (4 * 9.8f * 10000.f) / 32767.f;
+		s.Samples[i].AccelX = (SInt32)DECOM(pData + 0, accScale);
+		s.Samples[i].AccelY = (SInt32)DECOM(pData + 2, accScale);
+		s.Samples[i].AccelZ = (SInt32)DECOM(pData + 4, accScale);
+
+		// 量程 +/- 1000 deg/s
+		float gyroScale = (1000.f * Mathf::DegreeToRadFactor * 10000.f) / 32767.f;
+		s.Samples[i].GyroX = (SInt32)DECOM(pData + 6, gyroScale);
+		s.Samples[i].GyroY = (SInt32)DECOM(pData + 8, gyroScale);
+		s.Samples[i].GyroZ = (SInt32)DECOM(pData + 10, gyroScale);
+
+		pData += 12;
+	}
 
 	float magScale = 10000.f * 0.00073f;
-	s.MagX = (SInt16)DECOM(pData + 12, magScale);
-	s.MagY = (SInt16)DECOM(pData + 14, magScale);
-	s.MagZ = (SInt16)DECOM(pData + 16, magScale);
-
-	s.Temperature = 2500;
+	s.MagX = (SInt16)DECOM(pData, magScale);
+	s.MagY = (SInt16)DECOM(pData, magScale);
+	s.MagZ = (SInt16)DECOM(pData, magScale);
 
 	onTrackerMessage(&message);
 }

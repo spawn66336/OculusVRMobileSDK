@@ -141,6 +141,8 @@ bool HIDDeviceManager::initVendorProduct(int deviceHandle, HIDDeviceDesc* desc) 
     desc->VendorId = info.vendor;
     desc->ProductId = info.product;
 
+	LogText("HIDDeviceManager::initVendorProduct vender %hd product %hd", info.vendor, info.product);
+
     return true;
 }
 
