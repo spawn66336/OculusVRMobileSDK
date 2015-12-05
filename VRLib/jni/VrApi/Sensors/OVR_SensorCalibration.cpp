@@ -194,8 +194,7 @@ void SensorCalibration::StoreAutoOffset()
     const double maxDeltaT = 2.5;
     const double minExtraDeltaT = 0.5;
     //const UInt32 minDelay = 24 * 3600; // 1 day in seconds
-
-	const UInt32 minDelay = 60;
+	const UInt32 minDelay = 3600;
 
     // find the best bin
     UPInt binIdx = 0;

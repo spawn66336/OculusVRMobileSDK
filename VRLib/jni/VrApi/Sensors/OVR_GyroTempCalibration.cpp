@@ -291,8 +291,6 @@ void GyroTempCalibration::SaveFile()
 	
 	String path = GetCalibrationPath(true);
     root->Save(path);
-
-	LogText("GyroTempCalibration::SaveFile %s", str.ToCStr());
 }
 	
 void GyroTempCalibration::GetAllTemperatureReports(Array<Array<TemperatureReport> >* tempReports)

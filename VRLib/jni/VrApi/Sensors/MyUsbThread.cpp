@@ -70,25 +70,17 @@ namespace OVR {
 
 	//////////////////////////////////////////////////////////////////////////
 
-
 	static void* ThreadFunc_s(void* arg)
 	{
 		MyThread* thread = (MyThread*)arg;
-
 		void* r = thread->Run();
-
 		return r;
 	}
 
 
-	MyThread::MyThread()
-	{
-	}
+	MyThread::MyThread() {}
 
-	MyThread::~MyThread()
-	{
-	}
-
+	MyThread::~MyThread() {}
 
 	bool MyThread::Create()
 	{
@@ -101,8 +93,7 @@ namespace OVR {
 		return true;
 	}
 
-
-
+	
 
 	static int devicefd = -1;
 	static int deviceType = 0;
@@ -121,15 +112,10 @@ namespace OVR {
 
 		virtual void*		Run();
 
-	private:
-
 	};
 
 
-	DeviceThread::DeviceThread()
-	{
-
-	}
+	DeviceThread::DeviceThread() {	}
 
 
 	int ReadSensorDataFromUsb()
@@ -160,7 +146,7 @@ namespace OVR {
 			double deltaTime = timeSeconds - lastTime;
 
 			float freq = (float)(count / deltaTime);
-			LOG("freq %.2f", freq);
+			LogText("freq %.2f", freq);
 
 			count = 0;
 			lastTime = timeSeconds;
@@ -185,10 +171,8 @@ namespace OVR {
 	
 
 	void* DeviceThread::Run()
-	{
-		
-		while (ReadSensorDataFromUsb() >= 0)
-		{
+	{		
+		while (ReadSensorDataFromUsb() >= 0) {
 		}
 
 		return 0;
@@ -197,6 +181,77 @@ namespace OVR {
 
 	static DeviceThread deviceThread;
 
+	bool GetM3DSerialNumber(UByte * serial, uint32_t size)
+	{
+		if (devicefd < 0) {
+			return false;
+		}
+
+		unsigned char buffer[255];
+
+		const uint8_t DT_STRING = 0x03;
+
+		usbfs_ctrltransfer ctrl;
+		ctrl.bmRequestType = 0x80;
+		ctrl.bRequest = 0x06;		// request get descriptor
+		ctrl.wValue = DT_STRING << 8 | 0;	// string descriptor | id
+		ctrl.wIndex = 0;			// language id
+		ctrl.data = buffer;
+		ctrl.wLength = sizeof(buffer);
+		ctrl.timeout = 1000;
+
+		int r = ioctl(devicefd, IOCTL_USBFS_CONTROL, &ctrl);
+		if (r < 0) {
+			LogText("ioctl get language id error r = %d errno %d", r, errno);
+			return false;
+		}
+
+		uint16_t langid = buffer[2] | (buffer[3] << 8);
+		//GLog.LogInfo("langid = %hd", langid);
+
+		ctrl.wValue = DT_STRING << 8 | 0x03;	// serial string
+		ctrl.wIndex = langid;
+
+		r = ioctl(devicefd, IOCTL_USBFS_CONTROL, &ctrl);
+		if (r < 0) {
+			LogText("ioctl get serial string error r = %d errno %d", r, errno);
+			return false;
+		}
+
+		//GLog.LogInfo("read serial string length r = %d len = %d", r, (int)buffer[0]);
+
+		if (buffer[0] > r || buffer[0] > ctrl.wLength) {
+			LogText("ioctl get serial string size error %d", (int)buffer[0]);
+			return false;
+		}
+
+		if (buffer[1] != DT_STRING) {
+			LogText("ioctl get serial string error (buffer[1] != DT_STRING) buffer[1] = %d", (int)buffer[1]);
+			return false;
+		}
+
+		// to ascii code
+		int di = 0, si = 2, length = buffer[0];
+		for (; si < length; si += 2) {
+			if ((buffer[si] & 0x80) || (buffer[si + 1])) /* non-ASCII */
+				buffer[di++] = '?';
+			else
+				buffer[di++] = buffer[si];
+		}
+		buffer[di] = 0;
+
+		if (size >(uint32_t)di){
+			LogText("get serial number error, buffer size error %d", size);
+			return false;
+		}
+
+		memcpy(serial, buffer, size);
+
+		LogText("serial string %s", buffer);
+
+		return true;
+	}
+
 	extern "C"
 	{
 
@@ -204,11 +259,6 @@ namespace OVR {
 		{
 			devicefd = fd;
 			deviceType = _deviceType;
-
-			//bool r = deviceThread.Create();
-			//if (!r) {
-			//	LogText("deviceThread.Create() failed!");
-			//}
 
 			LogText("deviceThread.Create()!!! %d", fd);
 		}
@@ -240,40 +290,6 @@ namespace OVR {
 
 
 	} // extern c
-
-
-
-	//void KeepAlive()
-	//{
-	//	static double lastTime = 0.0;
-
-	//	double time = Timer::GetSeconds();
-
-	//	if (time - lastTime > 3.0) {
-
-	//		SensorKeepAliveImpl skeepAlive(10 * 1000);
-	//		skeepAlive.Pack();
-
-	//		struct usbfs_ctrltransfer ctrl;
-
-	//		ctrl.bmRequestType = 0x21;
-	//		ctrl.bRequest = 0x09;		// set report
-	//		ctrl.wValue = 0x308;		// HID_FEATURE | FEATURE_KEEP_ALIVE
-	//		ctrl.wIndex = 0;
-	//		ctrl.wLength = skeepAlive.PacketSize;
-	//		ctrl.data = skeepAlive.Buffer;
-	//		ctrl.timeout = 0;
-
-	//		int r = ioctl(devicefd, IOCTL_USBFS_CONTROL, &ctrl);
-	//		if (r < 0) {
-	//			LogText("ioctl error r = %d errno %d", r, errno);
-	//		}
-	//		else {
-	//			LogText("SensorKeepAlive succeeded %d", r);
-	//			lastTime = time;
-	//		}
-	//	}
-	//}
 
 
 	int GetSensorDeviceType()

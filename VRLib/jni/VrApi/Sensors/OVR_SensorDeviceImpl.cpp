@@ -925,6 +925,8 @@ bool SensorDeviceImpl::Initialize(DeviceBase* parent)
     return false;
 }
 
+bool GetM3DSerialNumber(UByte * serial, uint32_t size);
+
 void SensorDeviceImpl::openDevice()
 {
     // Read the currently configured range from sensor.
@@ -1000,13 +1002,16 @@ void SensorDeviceImpl::openDevice()
 		SerialReport serial;
 		if (!getSerialReport(&serial))
 		{	
-			LogText("OVR::SensorDeviceImpl::openDevice - failed to get device uuid.\n");
+			if (!GetM3DSerialNumber(serial.SerialNumberValue, sizeof(serial.SerialNumberValue)))
+			{
+				LogText("OVR::SensorDeviceImpl::openDevice - failed to get device uuid.\n");
+			}
 		}
 
 		// Convert to string.
 		for (int i=0; i<SerialReport::SERIAL_NUMBER_SIZE; i++)
 		{
-			str.AppendFormat("%02X", serial.SerialNumberValue[i]);		
+			str.AppendFormat("%c", serial.SerialNumberValue[i]);		
 		}
 #endif
 		

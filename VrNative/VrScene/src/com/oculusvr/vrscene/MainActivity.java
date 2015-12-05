@@ -69,7 +69,9 @@ public class MainActivity extends VrActivity {
 			
 			if (device.getVendorId() == 10291 && device.getProductId() == 1) {
 				deviceType = 1;
-			} else if (device.getVendorId() == 1155 && device.getProductId() == 22336) {
+			} else if (	(device.getVendorId() == 1155 && device.getProductId() == 22336) ||
+						(device.getVendorId() == 949 && device.getProductId() == 1)
+			) {
 				deviceType = 0;
 			} else {
 				continue;
