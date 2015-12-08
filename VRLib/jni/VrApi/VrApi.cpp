@@ -1166,7 +1166,6 @@ static bool WriteFreq( const int freq, const char * pathFormat, ... )
 static void SetVrSystemPerformance( JNIEnv * VrJni, jclass vrActivityClass, jobject activityObject,
 		const int cpuLevel, const int gpuLevel )
 {
-	//return;
 	// Clear any previous exceptions.
 	// NOTE: This can be removed once security exception handling is moved to 
 	// Java IF.
@@ -1181,9 +1180,14 @@ static void SetVrSystemPerformance( JNIEnv * VrJni, jclass vrActivityClass, jobj
 	// Get the available clock levels for the device.
 	const jmethodID getAvailableClockLevelsId = ovr_GetStaticMethodID( VrJni, vrActivityClass,
 		"getAvailableFreqLevels", "(Landroid/app/Activity;)[I" ); 
+	if (getAvailableClockLevelsId == NULL)
+	{
+		return;
+	}
+	
 	jintArray jintLevels = (jintArray)VrJni->CallStaticObjectMethod( vrActivityClass,
 		getAvailableClockLevelsId, activityObject );
-
+	
 	// Move security exception detection to the java IF.
 	// Catch Permission denied
 	if ( VrJni->ExceptionOccurred() )
@@ -1196,17 +1200,19 @@ static void SetVrSystemPerformance( JNIEnv * VrJni, jclass vrActivityClass, jobj
 	OVR_ASSERT( VrJni->GetArrayLength( jintLevels )== 4 );		// {GPU MIN, GPU MAX, CPU MIN, CPU MAX}
 
 	jint * levels = VrJni->GetIntArrayElements( jintLevels, NULL );
+	int localLevels[4];
+	memcpy(localLevels, levels, sizeof(localLevels));
 	if ( levels != NULL )
 	{
 		// Verify levels are within appropriate range for the device
 		if ( cpuLevel >= 0 )
 		{
-			OVR_ASSERT( cpuLevel >= levels[LEVEL_CPU_MIN] && cpuLevel <= levels[LEVEL_CPU_MAX] );
+			//OVR_ASSERT( cpuLevel >= levels[LEVEL_CPU_MIN] && cpuLevel <= levels[LEVEL_CPU_MAX] );
 			LOG( "CPU levels [%d, %d]", levels[LEVEL_CPU_MIN], levels[LEVEL_CPU_MAX] );
 		}
 		if ( gpuLevel >= 0 )
 		{
-			OVR_ASSERT( gpuLevel >= levels[LEVEL_GPU_MIN] && gpuLevel <= levels[LEVEL_GPU_MAX] );
+			//OVR_ASSERT( gpuLevel >= levels[LEVEL_GPU_MIN] && gpuLevel <= levels[LEVEL_GPU_MAX] );
 			LOG( "GPU levels [%d, %d]", levels[LEVEL_GPU_MIN], levels[LEVEL_GPU_MAX] );
 		}
 
@@ -1214,9 +1220,21 @@ static void SetVrSystemPerformance( JNIEnv * VrJni, jclass vrActivityClass, jobj
 	}
 	VrJni->DeleteLocalRef( jintLevels );
 
+	if (localLevels[0] == -1 || localLevels[1] == -1 ||
+		localLevels[2] == -1 || localLevels[3] == -1)
+	{
+		LOG("getAvailableFreqLevels not support");
+		return;
+	}
+
 	// Set the fixed cpu and gpu clock levels
 	const jmethodID setSystemPerformanceId = ovr_GetStaticMethodID( VrJni, vrActivityClass,
-			"setSystemPerformanceStatic", "(Landroid/app/Activity;II)[I" );
+		"setSystemPerformanceStatic", "(Landroid/app/Activity;II)[I");
+	if (setSystemPerformanceId == NULL)
+	{
+		return;
+	}
+
 	jintArray jintClocks = (jintArray)VrJni->CallStaticObjectMethod( vrActivityClass, setSystemPerformanceId,
 			activityObject, cpuLevel, gpuLevel );
 
