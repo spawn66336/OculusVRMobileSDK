@@ -263,6 +263,14 @@ namespace OVR {
 			LogText("deviceThread.Create()!!! %d", fd);
 		}
 
+		JNIEXPORT void JNICALL Java_com_fancytech_FancyTechActivity_setupUsbDevice(JNIEnv * env, jobject thiz, jint fd, jint _deviceType)
+		{
+			devicefd = fd;
+			deviceType = _deviceType;
+
+			LogText("FancyTechActivity deviceThread.Create()!!! %d", fd);
+		}
+
 		JNIEXPORT void JNICALL Java_com_oculusvr_vrscene_MainActivity_PushData
 			(JNIEnv * env, jobject obj, jbyteArray data, jint size)
 		{
