@@ -1087,7 +1087,7 @@ T DecodeData(const uint8_t* data)
 //
 void SensorDeviceImpl::OnInputReport2(UByte* pData, UInt32 length)
 {
-	if (length != 34){
+	if (length != 35){
 		LogText("SensorDeviceImpl::OnInputReport2 data size error %d", length);
 		return;
 	}

@@ -701,7 +701,7 @@ void TimeWarpLocal::BuildWarpProgs()
 		"}\n"
     );
 
-
+		return;
     // Debug program to color tint the overlay for LOD visualization
     BuildWarpProgMatchedPair( WP_OVERLAY_PLANE_SHOW_LOD,
     		"#version 300 es\n"

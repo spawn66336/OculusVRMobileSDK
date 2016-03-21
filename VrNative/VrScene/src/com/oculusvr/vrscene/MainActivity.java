@@ -51,7 +51,7 @@ public class MainActivity extends VrActivity {
 	private byte[] bytes;
 	private boolean forceClaim = true; 
 	UsbDeviceConnection connection = null;
-	UsbInterface intf = null;
+	UsbInterface intf_ = null;
 	UsbEndpoint endpoint = null;
 
 	protected void InitUsbDevice() {
@@ -70,6 +70,7 @@ public class MainActivity extends VrActivity {
 			if (device.getVendorId() == 10291 && device.getProductId() == 1) {
 				deviceType = 1;
 			} else if (	(device.getVendorId() == 1155 && device.getProductId() == 22336) ||
+						(device.getVendorId() == 1155 && device.getProductId() == 22352) ||
 						(device.getVendorId() == 949 && device.getProductId() == 1)
 			) {
 				deviceType = 0;
@@ -83,15 +84,32 @@ public class MainActivity extends VrActivity {
 			}
 			
 			Log.d(TAG, "usb device found interface count " + nInterface);
+			for (int i = 0; i < nInterface; i++) {
+				UsbInterface intf = device.getInterface(i);
+				String str = String.format("interface %d %d.%d.%d", intf.getId(), intf.getInterfaceClass(), 
+						intf.getInterfaceSubclass(), intf.getInterfaceProtocol());
+				Log.i(TAG, str);
 
-			connection = manager.openDevice(device);
-			intf = device.getInterface(0);
-			int endpointCount = intf.getEndpointCount();
-			endpoint = intf.getEndpoint(0);	
-			
-			connection.claimInterface(intf, forceClaim);
-			
+				if (intf.getInterfaceClass() == 10 && intf.getInterfaceSubclass() == 0 && intf.getInterfaceProtocol() == 0) {
+					intf_ = intf;
+					Log.i(TAG, "found interface");
+				}
+				int numEndpoint = intf.getEndpointCount();
+	            for (int j = 0; j < intf.getEndpointCount(); j++) {                    
+	                UsbEndpoint endpoint = intf.getEndpoint(j);
+	                String endpointInfo = String.format("endpoint %d addr 0x%x number %d attri %d", j, 
+	                		endpoint.getAddress(), endpoint.getEndpointNumber(), endpoint.getAttributes());
+	                Log.i(TAG, endpointInfo);
+	            }
+	            
+			}
+
+			connection = manager.openDevice(device);			
+			boolean bRes = connection.claimInterface(intf_, forceClaim);			
 			int fd = connection.getFileDescriptor();
+			
+			Log.i(TAG, String.format("%s %d", bRes ? "succeeded" : "failed", fd));
+			
 			setupUsbDevice(fd, deviceType);	
 			
 			// use native thread
