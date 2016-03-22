@@ -16,38 +16,6 @@
 #include <jni.h>
 
 
-
-struct usbfs_ctrltransfer {
-	/* keep in sync with usbdevice_fs.h:usbdevfs_ctrltransfer */
-	uint8_t  bmRequestType;
-	uint8_t  bRequest;
-	uint16_t wValue;
-	uint16_t wIndex;
-	uint16_t wLength;
-
-	uint32_t timeout;	/* in milliseconds */
-
-	/* pointer to data */
-	void *data;
-};
-
-struct usbfs_bulktransfer {
-	/* keep in sync with usbdevice_fs.h:usbdevfs_bulktransfer */
-	unsigned int ep;
-	unsigned int len;
-	unsigned int timeout;	/* in milliseconds */
-
-	/* pointer to data */
-	void *data;
-};
-
-
-
-#define IOCTL_USBFS_CONTROL	_IOWR('U', 0, struct usbfs_ctrltransfer)
-#define IOCTL_USBFS_BULK		_IOWR('U', 2, struct usbfs_bulktransfer)
-
-
-
 namespace OVR {
 
 	
@@ -111,7 +79,6 @@ namespace OVR {
 		~DeviceThread()	{}
 
 		virtual void*		Run();
-
 	};
 
 
@@ -126,13 +93,13 @@ namespace OVR {
 		
 		char buffer[128];
 
-		usbfs_bulktransfer bulk;
+		usbdevfs_bulktransfer bulk;
 		bulk.ep = 0x81;			// endpoint 1 / read in
 		bulk.data = buffer;
 		bulk.len = 128;
 		bulk.timeout = 0;
 
-		int r = ioctl(devicefd, IOCTL_USBFS_BULK, &bulk);
+		int r = ioctl(devicefd, USBDEVFS_BULK, &bulk);
 		if (r < 0) {
 			LogText("ioctl IOCTL_USBFS_BULK error r = %d errno %d", r, errno);
 			LogText("thread done!");
@@ -168,11 +135,45 @@ namespace OVR {
 
 		return r;
 	}
+
+	int ReadHidInputData()
+	{
+		if (devicefd < 0) {
+			return 0;
+		}
+
+		char buffer[128];
+
+		usbdevfs_bulktransfer bulk;
+		bulk.ep = 0x84;			// endpoint 4 / read in
+		bulk.data = buffer;
+		bulk.len = 128;
+		bulk.timeout = 0;
+
+		int r = ioctl(devicefd, USBDEVFS_BULK, &bulk);
+		if (r < 0) {
+			LogText("ioctl IOCTL_USBFS_BULK error r = %d errno %d", r, errno);
+			LogText("thread done!");
+			return -1;
+		}
+
+		char text[128];
+		char* p = text;
+		for (int i = 0; i < 8; i++) {
+			sprintf(p, "%02X", buffer[i]);
+			p += 2;
+		}
+		*p = '\0';
+		LogText("HIDInput readed r %d readLen %d %s", r, 8, text);
+
+		return r;
+	}
 	
 
 	void* DeviceThread::Run()
-	{		
-		while (ReadSensorDataFromUsb() >= 0) {
+	{
+		LogText("start DeviceThread");
+		while (ReadHidInputData() >= 0) {
 		}
 
 		return 0;
@@ -180,6 +181,7 @@ namespace OVR {
 
 
 	static DeviceThread deviceThread;
+
 
 	bool GetM3DSerialNumber(UByte * serial, uint32_t size)
 	{
@@ -191,8 +193,8 @@ namespace OVR {
 
 		const uint8_t DT_STRING = 0x03;
 
-		usbfs_ctrltransfer ctrl;
-		ctrl.bmRequestType = 0x80;
+		usbdevfs_ctrltransfer ctrl;
+		ctrl.bRequestType = 0x80;
 		ctrl.bRequest = 0x06;		// request get descriptor
 		ctrl.wValue = DT_STRING << 8 | 0;	// string descriptor | id
 		ctrl.wIndex = 0;			// language id
@@ -200,7 +202,7 @@ namespace OVR {
 		ctrl.wLength = sizeof(buffer);
 		ctrl.timeout = 1000;
 
-		int r = ioctl(devicefd, IOCTL_USBFS_CONTROL, &ctrl);
+		int r = ioctl(devicefd, USBDEVFS_CONTROL, &ctrl);
 		if (r < 0) {
 			LogText("ioctl get language id error r = %d errno %d", r, errno);
 			return false;
@@ -212,7 +214,7 @@ namespace OVR {
 		ctrl.wValue = DT_STRING << 8 | 0x03;	// serial string
 		ctrl.wIndex = langid;
 
-		r = ioctl(devicefd, IOCTL_USBFS_CONTROL, &ctrl);
+		r = ioctl(devicefd, USBDEVFS_CONTROL, &ctrl);
 		if (r < 0) {
 			LogText("ioctl get serial string error r = %d errno %d", r, errno);
 			return false;
@@ -255,12 +257,15 @@ namespace OVR {
 	extern "C"
 	{
 
-		JNIEXPORT void JNICALL Java_com_oculusvr_vrscene_MainActivity_setupUsbDevice(JNIEnv * env, jobject thiz, jint fd, jint _deviceType)
+		JNIEXPORT void JNICALL Java_com_oculusvr_vrscene_MainActivity_setupUsbDevice(JNIEnv * env, jobject thiz, jint fd, jint _deviceType, jboolean startThread)
 		{
 			devicefd = fd;
 			deviceType = _deviceType;
 
-			LogText("deviceThread.Create()!!! %d", fd);
+			if (startThread) {
+				LogText("deviceThread.Create()!!! %d", fd);
+				deviceThread.Create();
+			}
 		}
 
 		JNIEXPORT void JNICALL Java_com_fancytech_FancyTechActivity_setupUsbDevice(JNIEnv * env, jobject thiz, jint fd, jint _deviceType)
@@ -309,13 +314,13 @@ namespace OVR {
 	{
 		UByte cmd = 0x31;
 
-		usbfs_bulktransfer bulk;
+		usbdevfs_bulktransfer bulk;
 		bulk.ep = 0x03;			// send out
 		bulk.data = &cmd;
 		bulk.len = 1;
 		bulk.timeout = 0;
 
-		int r = ioctl(devicefd, IOCTL_USBFS_BULK, &bulk);
+		int r = ioctl(devicefd, USBDEVFS_BULK, &bulk);
 		if (r < 0) {
 			LogText("Fancy3DKeepAlive error r = %d errno %d", r, errno);
 		}
@@ -340,9 +345,9 @@ namespace OVR {
 
 		UByte reportID = data[0];
 
-		struct usbfs_ctrltransfer ctrl;
+		struct usbdevfs_ctrltransfer ctrl;
 
-		ctrl.bmRequestType = 0x21;			// host to device / type : class / Recipient : interface
+		ctrl.bRequestType = 0x21;			// host to device / type : class / Recipient : interface
 		ctrl.bRequest = 0x09;				// set report
 		ctrl.wValue = 0x300 | reportID;		// HID_FEATURE | id
 		ctrl.wIndex = 0;
@@ -352,7 +357,7 @@ namespace OVR {
 
 		LogText("ioctl UsbSetFeature %d", reportID);
 
-		int r = ioctl(devicefd, IOCTL_USBFS_CONTROL, &ctrl);
+		int r = ioctl(devicefd, USBDEVFS_CONTROL, &ctrl);
 		if (r < 0) {
 			LogText("ioctl UsbSetFeature error r = %d errno %d", r, errno);
 			return false;
@@ -373,9 +378,9 @@ namespace OVR {
 
 		UByte reportID = data[0];
 
-		struct usbfs_ctrltransfer ctrl;
+		usbdevfs_ctrltransfer ctrl;
 
-		ctrl.bmRequestType = 0xa1;		// device to host / type : class / Recipient : interface
+		ctrl.bRequestType = 0xa1;		// device to host / type : class / Recipient : interface
 		ctrl.bRequest = 0x01;			// get report
 		ctrl.wValue = 0x300 | reportID;		// HID_FEATURE | id
 		ctrl.wIndex = 0;
@@ -385,7 +390,7 @@ namespace OVR {
 		
 		LogText("ioctl UsbGetFeature %d", reportID);
 
-		int r = ioctl(devicefd, IOCTL_USBFS_CONTROL, &ctrl);
+		int r = ioctl(devicefd, USBDEVFS_CONTROL, &ctrl);
 		if (r < 0) {
 			LogText("ioctl UsbGetFeature error r = %d errno %d", r, errno);
 			return false;

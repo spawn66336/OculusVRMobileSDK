@@ -24,6 +24,14 @@ import java.util.HashSet;
 public class MainActivity extends VrActivity {
 
 	public static final String TAG = "VrScene";
+	private byte[] bytes;
+	private boolean forceClaim = true; 
+	UsbDeviceConnection connection = null;
+	UsbInterface gyroDataIntf_ = null;
+	UsbInterface hidInputIntf_ = null;
+	UsbEndpoint hidEndpoint_ = null;
+	boolean buttonDown_ = false;
+
 	
 	/** Load jni .so on initialization */
 	static {
@@ -47,12 +55,6 @@ public class MainActivity extends VrActivity {
 
 		InitUsbDevice();
 	}
-
-	private byte[] bytes;
-	private boolean forceClaim = true; 
-	UsbDeviceConnection connection = null;
-	UsbInterface intf_ = null;
-	UsbEndpoint endpoint = null;
 
 	protected void InitUsbDevice() {
 
@@ -91,29 +93,46 @@ public class MainActivity extends VrActivity {
 				Log.i(TAG, str);
 
 				if (intf.getInterfaceClass() == 10 && intf.getInterfaceSubclass() == 0 && intf.getInterfaceProtocol() == 0) {
-					intf_ = intf;
-					Log.i(TAG, "found interface");
+					gyroDataIntf_ = intf;
+					Log.i(TAG, "found cdc interface " + intf.toString());
 				}
+				
+				if (intf.getInterfaceClass() == 0x03 && intf.getInterfaceSubclass() == 0 && intf.getInterfaceProtocol() == 0) {
+					this.hidInputIntf_ = intf;
+					Log.i(TAG, "found hid interface " + intf.toString());
+				}
+				
 				int numEndpoint = intf.getEndpointCount();
 	            for (int j = 0; j < intf.getEndpointCount(); j++) {                    
 	                UsbEndpoint endpoint = intf.getEndpoint(j);
 	                String endpointInfo = String.format("endpoint %d addr 0x%x number %d attri %d", j, 
 	                		endpoint.getAddress(), endpoint.getEndpointNumber(), endpoint.getAttributes());
 	                Log.i(TAG, endpointInfo);
-	            }
-	            
+	                if (this.hidInputIntf_ == intf) {
+	                	this.hidEndpoint_ = endpoint;
+	                }
+	        
+	            }	            
 			}
 
-			connection = manager.openDevice(device);			
-			boolean bRes = connection.claimInterface(intf_, forceClaim);			
-			int fd = connection.getFileDescriptor();
+			connection = manager.openDevice(device);
+			if (gyroDataIntf_ != null) {
+				boolean bRes = connection.claimInterface(gyroDataIntf_, forceClaim);	
+				Log.i(TAG, String.format("claim gyro data interface %s", bRes ? "succeeded" : "failed"));				
+			}
+
+			if (hidInputIntf_ != null) {
+				boolean bRes = connection.claimInterface(hidInputIntf_, forceClaim);	
+				Log.i(TAG, String.format("claim hid input interface %s", bRes ? "succeeded" : "failed"));				
+			}				
 			
-			Log.i(TAG, String.format("%s %d", bRes ? "succeeded" : "failed", fd));
+			int fd = connection.getFileDescriptor();			
+			Log.i(TAG, String.format("FileDescriptor %d", fd));		
 			
-			setupUsbDevice(fd, deviceType);	
+			setupUsbDevice(fd, deviceType, false);	
 			
 			// use native thread
-			//StartUsbIOThread();					
+			StartUsbIOThread();				
 			
 			// 0xa1 : device to host / Type : class / Recipien : interface
 			// request : 1 (get report)
@@ -129,6 +148,21 @@ public class MainActivity extends VrActivity {
 
 	}
 	
+	void HandleHidInputData(byte[] data, int size)
+	{
+		if (size == 0){
+			return;
+		}
+					
+		if (data[6] == (byte)0xf) {
+			this.buttonDown_ = true;
+		} else if (buttonDown_ && data[6] == (byte)0xf0) {			
+			this.buttonDown_ = false;
+			
+			Log.i(TAG, "button clicked!!!");
+		}		
+	}
+	
 	void StartUsbIOThread() {
 		bytes = new byte[256];
 		
@@ -136,8 +170,9 @@ public class MainActivity extends VrActivity {
 			public void run() {
 							
 				while (true) {	
-					int size = connection.bulkTransfer(endpoint, bytes, bytes.length, 0);	
-					PushData(bytes, size);
+					int size = connection.bulkTransfer(hidEndpoint_, bytes, bytes.length, 0);
+					HandleHidInputData(bytes, size);
+					//PushData(bytes, size);
 				}				
 			}
 		}).start();
@@ -145,6 +180,6 @@ public class MainActivity extends VrActivity {
 	
 		
     public native void PushData(byte[] buffer, int length);	
-    public native void setupUsbDevice(int fd, int deviceType);
+    public native void setupUsbDevice(int fd, int deviceType, boolean startThread);
 	
 }
