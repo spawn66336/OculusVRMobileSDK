@@ -1087,10 +1087,10 @@ T DecodeData(const uint8_t* data)
 //
 void SensorDeviceImpl::OnInputReport2(UByte* pData, UInt32 length)
 {
-	if (length != 35){
-		LogText("SensorDeviceImpl::OnInputReport2 data size error %d", length);
-		return;
-	}
+	//if (length != 35){
+	//	LogText("SensorDeviceImpl::OnInputReport2 data size error %d", length);
+	//	return;
+	//}
 	
 	TrackerMessage message;
 	memset(&message, 0, sizeof(message));
